@@ -23,13 +23,13 @@ Disponible en GitHub Pages:
 
 ## Screenshots
 
-Guardá las capturas en `assets/screenshots/` usando estos nombres recomendados:
+Capturas recomendadas para agregar en `assets/screenshots/`:
 
-![Vista general](assets/screenshots/overview.png)
-![Operación paso a paso](assets/screenshots/step-by-step.png)
-![Ejercicios precargados](assets/screenshots/exercises.png)
+- `overview.png` para la vista general de la herramienta
+- `step-by-step.png` para una operación con explicación paso a paso
+- `exercises.png` para mostrar los ejercicios precargados
 
-Si todavía no agregaste imágenes, podés dejar esta sección así y completar los archivos más adelante.
+Cuando subas esas imágenes, esta sección se puede volver a cambiar para mostrarlas embebidas en el README.
 
 ## Qué es este proyecto
 
