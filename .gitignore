@@ -1,0 +1,59 @@
+# Operating system
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.suo
+*.user
+*.userossc
+*.sln.docstates
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+out/
+coverage/
+.cache/
+.parcel-cache/
+.turbo/
+.next/
+.nuxt/
+.vite/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Tooling caches
+.eslintcache
+*.tsbuildinfo
+
+# Temporary and backup files
+tmp/
+temp/
+*.tmp
+*.bak
+*.orig
+
+# Local reference material not intended for public distribution
+7 - Árboles B (2).pptx
+8 - Árboles B+ (1).pptx
+Introducción a las Bases de Datos - Bertone-Thomas.pdf
+Práctica 4 - Arboles B.pdf

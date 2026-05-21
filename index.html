@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>FOD - Árboles B/B+ Didáctico v2</title>
+<style>
+  :root {
+    --bg: #0c1117;
+    --panel: #161c24;
+    --panel-2: #1f2731;
+    --border: #2a3441;
+    --accent: #4ade80;
+    --accent-dim: #16a34a;
+    --warn: #fbbf24;
+    --danger: #ef4444;
+    --info: #38bdf8;
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+    --node: #2d3a47;
+    --node-text: #f0fdf4;
+    --node-leaf: #1e3a4d;
+    --new-node: #facc15;
+    --highlight: #4ade80;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    font-size: 14px;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 300px 1fr 400px;
+    width: 100%;
+    height: 100vh;
+  }
+  aside {
+    background: var(--panel);
+    padding: 14px;
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+  }
+  main {
+    background: var(--bg);
+    overflow: auto;
+    position: relative;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+  }
+  .right-panel {
+    background: var(--panel);
+    padding: 14px;
+    overflow-y: auto;
+    border-left: 1px solid var(--border);
+  }
+  h2 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--accent);
+    margin: 0 0 10px 0;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 4px;
+    font-weight: 700;
+  }
+  label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 3px; font-weight: 500; }
+  select, input[type="number"], input[type="text"] {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 10px;
+    border-radius: 5px;
+    font-size: 13px;
+    margin-bottom: 8px;
+    font-family: inherit;
+  }
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.15);
+  }
+  button {
+    background: var(--accent-dim);
+    color: white;
+    border: none;
+    padding: 7px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.15s;
+    margin-right: 4px;
+    margin-bottom: 4px;
+    font-family: inherit;
+  }
+  button:hover { background: var(--accent); transform: translateY(-1px); }
+  button:active { transform: translateY(0); }
+  button.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+  button.danger { background: #b91c1c; }
+  button.danger:hover { background: #dc2626; }
+  button.warn { background: #d97706; }
+  button.warn:hover { background: #ea580c; }
+  button.info { background: #0284c7; }
+  button.info:hover { background: #0ea5e9; }
+  .row { display: flex; gap: 4px; }
+  .row > input { flex: 1; }
+  .config-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .radio-group { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 8px; }
+  .radio-group label {
+    background: var(--panel-2);
+    padding: 5px 9px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--text);
+    border: 1px solid var(--border);
+    margin: 0;
+    transition: all 0.15s;
+  }
+  .radio-group input { display: none; }
+  .radio-group label:has(input:checked) {
+    border-color: var(--accent);
+    background: rgba(74, 222, 128, 0.15);
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  /* Canvas */
+  .canvas-wrap {
+    flex: 1;
+    background: linear-gradient(135deg, #0a0f15 0%, #0c1117 100%);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    overflow: auto;
+    position: relative;
+  }
+  #canvas {
+    display: block;
+    min-width: 100%;
+    min-height: 500px;
+  }
+  .node-rect {
+    fill: var(--node);
+    stroke: var(--accent);
+    stroke-width: 1.5;
+    rx: 5;
+  }
+  .node-rect.leaf {
+    fill: var(--node-leaf);
+    stroke: var(--info);
+  }
+  .node-rect.root {
+    stroke-width: 2.5;
+  }
+  .node-key {
+    fill: var(--node-text);
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    text-anchor: middle;
+  }
+  .node-id {
+    fill: var(--muted);
+    font-size: 10px;
+    text-anchor: middle;
+    font-family: monospace;
+  }
+  .edge { stroke: #4a5563; stroke-width: 1.5; fill: none; }
+  .leaf-link { stroke: var(--info); stroke-width: 1.2; stroke-dasharray: 5 3; fill: none; opacity: 0.7; }
+
+  /* Log */
+  .log-step {
+    background: var(--panel-2);
+    border-left: 3px solid var(--accent);
+    padding: 9px 11px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+  .log-step.overflow { border-left-color: var(--warn); }
+  .log-step.underflow { border-left-color: var(--danger); }
+  .log-step.error { border-left-color: var(--danger); background: rgba(239, 68, 68, 0.06); }
+  .log-step.info { border-left-color: var(--info); }
+  .log-step.start { border-left-color: var(--accent); background: rgba(74, 222, 128, 0.06); }
+  .log-step .step-title {
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 3px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .log-step.overflow .step-title { color: var(--warn); }
+  .log-step.underflow .step-title, .log-step.error .step-title { color: var(--danger); }
+  .log-step.info .step-title { color: var(--info); }
+  .log-step b { color: var(--accent); }
+  .le-tag {
+    display: inline-block;
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin: 1px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .le-tag.write { border-color: var(--warn); color: var(--warn); }
+  .le-summary {
+    background: #0a0f14;
+    padding: 6px 8px;
+    border-radius: 4px;
+    margin-top: 6px;
+    font-size: 11px;
+  }
+  .preset-btn {
+    background: var(--panel-2);
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+    padding: 6px 10px;
+    font-size: 11px;
+    width: 100%;
+    margin-bottom: 3px;
+    text-align: left;
+    font-weight: 600;
+  }
+  .preset-btn:hover { background: var(--accent-dim); color: white; }
+  .info-card {
+    background: var(--panel-2);
+    padding: 8px 10px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .info-card .label { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .info-card .value { color: var(--accent); font-family: monospace; font-size: 14px; font-weight: 700; }
+  .params-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .free-tag {
+    display: inline-block;
+    background: var(--panel-2);
+    color: var(--muted);
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin: 2px;
+    font-family: monospace;
+    font-size: 10px;
+    border: 1px dashed var(--muted);
+  }
+  details { margin-bottom: 6px; }
+  summary {
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--accent);
+    padding: 4px 0;
+    user-select: none;
+    font-weight: 600;
+  }
+  details[open] summary { margin-bottom: 6px; }
+  .toolbar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .toolbar input { margin: 0; }
+  .toolbar .badge {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 4px 10px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-family: monospace;
+  }
+  .toolbar .badge .v { color: var(--accent); font-weight: 700; }
+  .empty-state {
+    text-align: center;
+    color: var(--muted);
+    padding: 60px 20px;
+    font-size: 13px;
+  }
+  .empty-state svg { opacity: 0.3; margin-bottom: 16px; }
+  .empty-state h3 { color: var(--accent); margin: 0 0 8px 0; }
+  .theory-box {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    font-size: 11.5px;
+    line-height: 1.55;
+  }
+  .theory-box h4 {
+    margin: 0 0 6px 0;
+    color: var(--info);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .theory-box ul { padding-left: 18px; margin: 4px 0; }
+  .theory-box li { margin-bottom: 3px; }
+  .notation {
+    background: #0a0f14;
+    color: var(--accent);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 11px;
+  }
+  .footer-credits {
+    margin-top: 16px;
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- IZQUIERDA: Configuración + Operaciones -->
+  <aside>
+    <h2>⚙ Configuración</h2>
+    <div class="config-row">
+      <div>
+        <label>Tipo</label>
+        <select id="tipo">
+          <option value="B">Árbol B</option>
+          <option value="B+">Árbol B+</option>
+        </select>
+      </div>
+      <div>
+        <label>Orden M</label>
+        <input type="number" id="orden" value="5" min="3" max="12">
+      </div>
+    </div>
+
+    <label>Política de underflow</label>
+    <div class="radio-group" id="politica-group">
+      <label><input type="radio" name="politica" value="izq" checked>Izquierda</label>
+      <label><input type="radio" name="politica" value="der">Derecha</label>
+      <label><input type="radio" name="politica" value="izq-der">Izq o Der</label>
+      <label><input type="radio" name="politica" value="der-izq">Der o Izq</label>
+    </div>
+
+    <div class="row">
+      <button onclick="reiniciar()">🌱 Nuevo</button>
+      <button class="secondary" onclick="limpiarLog()">↺ Log</button>
+    </div>
+
+    <h2 style="margin-top:18px">▸ Operaciones</h2>
+
+    <label>Insertar</label>
+    <div class="row">
+      <input type="number" id="insertKey" placeholder="ej: 320">
+      <button onclick="insertar()">+ Alta</button>
+    </div>
+
+    <label>Eliminar</label>
+    <div class="row">
+      <input type="number" id="deleteKey" placeholder="ej: 390">
+      <button class="danger" onclick="eliminar()">− Baja</button>
+    </div>
+
+    <label>Secuencia <span style="color:var(--muted);font-size:10px">(+320,-390,...)</span></label>
+    <div class="row">
+      <input type="text" id="seqInput" placeholder="+10,+20,-5...">
+      <button class="warn" onclick="ejecutarSecuencia()">▶</button>
+    </div>
+
+    <h2 style="margin-top:18px">📋 Ejercicios práctica</h2>
+    <details open>
+      <summary>Árbol B</summary>
+      <button class="preset-btn" onclick="cargarPreset('ej7')">Ej. 7 — orden 5, izq</button>
+      <button class="preset-btn" onclick="cargarPreset('ej8')">Ej. 8 — orden 4, der</button>
+      <button class="preset-btn" onclick="cargarPreset('ej9')">Ej. 9 — orden 6, der-izq</button>
+      <button class="preset-btn" onclick="cargarPreset('ej10')">Ej. 10 — orden 5, der</button>
+      <button class="preset-btn" onclick="cargarPreset('ej13')">Ej. 13 — orden 6, izq-der</button>
+      <button class="preset-btn" onclick="cargarPreset('ej19')">Ej. 19 — orden 5, izq-der</button>
+    </details>
+    <details>
+      <summary>Árbol B+</summary>
+      <button class="preset-btn" onclick="cargarPreset('ej14')">Ej. 14 — orden 4, der</button>
+      <button class="preset-btn" onclick="cargarPreset('ej15')">Ej. 15 — orden 4, der</button>
+      <button class="preset-btn" onclick="cargarPreset('ej17')">Ej. 17 — orden 4, izq-der</button>
+      <button class="preset-btn" onclick="cargarPreset('ej18')">Ej. 18 — orden 6, der</button>
+      <button class="preset-btn" onclick="cargarPreset('ej20')">Ej. 20 — orden 5, izq-der</button>
+    </details>
+
+    <details>
+      <summary>📖 Teoría rápida</summary>
+      <div class="theory-box">
+        <h4>Overflow (alta)</h4>
+        Cuando un nodo supera M-1 claves. Se divide en 2 nodos:
+        <ul>
+          <li>Orden impar → sube la clave del medio</li>
+          <li>Orden par → sube la menor de las claves mayores</li>
+          <li>En B+ hojas: sube una <b>copia</b></li>
+        </ul>
+      </div>
+      <div class="theory-box">
+        <h4>Underflow (baja)</h4>
+        Cuando un nodo queda con menos de ⌈M/2⌉-1 claves:
+        <ul>
+          <li>Primero <b>redistribuir</b> con hermano adyacente</li>
+          <li>Si no se puede → <b>fusión</b> con hermano adyacente</li>
+          <li>La fusión puede propagar underflow al padre</li>
+        </ul>
+      </div>
+      <div class="theory-box">
+        <h4>B+ característica clave</h4>
+        Las claves guía en nodos internos NO se actualizan si se borra el dato en la hoja.
+        Si se intenta eliminar una clave que solo existe como guía pero no en hoja, la operación falla (clave no encontrada).
+      </div>
+    </details>
+
+    <div class="footer-credits">FOD - UNLP<br>Herramienta didáctica</div>
+  </aside>
+
+  <!-- CENTRO: Visualización -->
+  <main>
+    <div class="toolbar">
+      <span class="badge">Tipo: <span class="v" id="tagTipo">B</span></span>
+      <span class="badge">Orden: <span class="v" id="tagOrden">5</span></span>
+      <span class="badge">Política: <span class="v" id="tagPolitica">izquierda</span></span>
+      <span class="badge">Mín: <span class="v" id="tagMin">2</span> / Máx: <span class="v" id="tagMax">4</span></span>
+      <span class="badge">Nodos: <span class="v" id="tagNodos">0</span></span>
+      <span class="badge" id="tagFree" style="display:none">Libres: <span class="v" id="tagFreeList"></span></span>
+    </div>
+
+    <div class="canvas-wrap">
+      <svg id="canvas" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div id="emptyState" class="empty-state">
+        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="9" y="2" width="6" height="4" rx="1"/>
+          <rect x="3" y="14" width="6" height="4" rx="1"/>
+          <rect x="9" y="14" width="6" height="4" rx="1"/>
+          <rect x="15" y="14" width="6" height="4" rx="1"/>
+          <line x1="12" y1="6" x2="6" y2="14"/>
+          <line x1="12" y1="6" x2="12" y2="14"/>
+          <line x1="12" y1="6" x2="18" y2="14"/>
+        </svg>
+        <h3>Empezá a explorar</h3>
+        Cargá un ejercicio de la práctica o insertá claves para construir tu árbol.
+      </div>
+    </div>
+  </main>
+
+  <!-- DERECHA: Pizarra -->
+  <aside class="right-panel">
+    <h2>📜 Pizarra de pasos</h2>
+    <div id="logContainer"></div>
+  </aside>
+</div>
+
+<script>
+/* ============================================================
+   MOTOR DE ÁRBOL B / B+ — FOD UNLP
+   Sigue: práctica 4, libro Bertone-Thomas, slides de la cátedra
+   ============================================================ */
+
+let tree = null;
+let M = 5;
+let TYPE = 'B';
+let POLICY = 'izq';
+let nodeCounter = 0;
+let freeNodes = [];
+let logSteps = [];
+let currentLE = [];
+
+function nuevoNodo(isLeaf) {
+  let id;
+  if (freeNodes.length > 0) id = freeNodes.pop();
+  else id = nodeCounter++;
+  const node = { id, isLeaf, keys: [], children: [] };
+  if (TYPE === 'B+' && isLeaf) node.next = -1;
+  tree.nodes[id] = node;
+  return node;
+}
+
+function liberarNodo(id) {
+  delete tree.nodes[id];
+  freeNodes.push(id);
+}
+
+function L(id) {
+  const tag = 'L' + id;
+  if (!currentLE.includes(tag)) currentLE.push(tag);
+  return tree.nodes[id];
+}
+function E(id) {
+  const tag = 'E' + id;
+  if (!currentLE.includes(tag)) currentLE.push(tag);
+}
+
+function minClaves() { return Math.ceil(M/2) - 1; }
+function maxClaves() { return M - 1; }
+function minHijos() { return Math.ceil(M/2); }
+
+function reiniciar() {
+  M = parseInt(document.getElementById('orden').value);
+  TYPE = document.getElementById('tipo').value;
+  POLICY = document.querySelector('input[name="politica"]:checked').value;
+  if (M < 3) M = 3;
+  tree = { root: null, nodes: {} };
+  nodeCounter = 0;
+  freeNodes = [];
+  logSteps = [];
+  agregarLog('start', `Árbol ${TYPE} de orden ${M} (vacío)`,
+    `Máximo de claves por nodo: <b>${maxClaves()}</b>. Mínimo (no raíz): <b>${minClaves()}</b>. Política: <b>${nombrePolitica(POLICY)}</b>.`);
+  render();
+}
+
+function limpiarLog() {
+  logSteps = [];
+  renderLog();
+}
+
+function nombrePolitica(p) {
+  return { 'izq':'izquierda', 'der':'derecha', 'izq-der':'izquierda o derecha', 'der-izq':'derecha o izquierda' }[p];
+}
+
+/* ============================================================
+   INSERCIÓN
+   ============================================================ */
+function insertar() {
+  const v = document.getElementById('insertKey').value;
+  if (v === '') return;
+  insertarClave(parseInt(v));
+  document.getElementById('insertKey').value = '';
+}
+
+function insertarClave(k) {
+  currentLE = [];
+  if (!tree) reiniciar();
+
+  if (tree.root === null) {
+    const root = nuevoNodo(true);
+    root.keys.push(k);
+    tree.root = root.id;
+    E(root.id);
+    agregarLog('success', `+${k}: Inserción en árbol vacío`,
+      `Se crea la raíz (nodo ${root.id}) como hoja con la clave <b>${k}</b>.`,
+      currentLE);
+    render();
+    return;
+  }
+
+  // Buscar la hoja donde insertar (siempre se inserta en hoja)
+  const path = [];
+  let curId = tree.root;
+  while (true) {
+    const node = L(curId);
+    if (node.isLeaf) break;
+    let i = 0;
+    while (i < node.keys.length && k >= node.keys[i]) i++;
+    path.push({ nodeId: curId, childIndex: i });
+    curId = node.children[i];
+  }
+
+  const leaf = tree.nodes[curId];
+
+  if (leaf.keys.includes(k)) {
+    agregarLog('error', `+${k}: clave duplicada`, `La clave <b>${k}</b> ya existe en el nodo ${leaf.id}. No se inserta.`, currentLE);
+    render();
+    return;
+  }
+
+  let i = 0;
+  while (i < leaf.keys.length && leaf.keys[i] < k) i++;
+  leaf.keys.splice(i, 0, k);
+
+  let descripcion = `Se busca dónde insertar <b>${k}</b>. La hoja correspondiente es el nodo ${leaf.id}.`;
+
+  if (leaf.keys.length <= maxClaves()) {
+    E(leaf.id);
+    agregarLog('success', `+${k}: Inserción simple`,
+      `${descripcion} El nodo ${leaf.id} queda con [${leaf.keys.join(', ')}] (${leaf.keys.length} ≤ ${maxClaves()}). Sin overflow.`,
+      currentLE);
+    render();
+    return;
+  }
+
+  // OVERFLOW
+  agregarLog('overflow', `+${k}: OVERFLOW en nodo ${leaf.id}`,
+    `${descripcion} El nodo queda con ${leaf.keys.length} claves > ${maxClaves()} (máximo). Se debe dividir.`);
+
+  let splitResult = dividirNodo(leaf);
+  let promoKey = splitResult.promoKey;
+  let newNodeId = splitResult.newNodeId;
+
+  while (path.length > 0) {
+    const { nodeId: parentId, childIndex } = path.pop();
+    const parent = tree.nodes[parentId];
+    parent.keys.splice(childIndex, 0, promoKey);
+    parent.children.splice(childIndex + 1, 0, newNodeId);
+
+    if (parent.keys.length <= maxClaves()) {
+      E(parent.id);
+      agregarLog('success', `Promoción a nodo ${parent.id}`,
+        `La clave <b>${promoKey}</b> sube al padre (nodo ${parent.id}). Queda con [${parent.keys.join(', ')}] (${parent.keys.length} ≤ ${maxClaves()}). Sin overflow.`,
+        currentLE);
+      render();
+      return;
+    }
+
+    agregarLog('overflow', `OVERFLOW en nodo ${parent.id}`,
+      `Al subir ${promoKey} al nodo ${parent.id} queda con ${parent.keys.length} claves > ${maxClaves()}. Se divide.`);
+    splitResult = dividirNodo(parent);
+    promoKey = splitResult.promoKey;
+    newNodeId = splitResult.newNodeId;
+  }
+
+  // Llegamos a la raíz desbordada → nueva raíz
+  const newRoot = nuevoNodo(false);
+  newRoot.keys.push(promoKey);
+  newRoot.children.push(tree.root);
+  newRoot.children.push(newNodeId);
+  tree.root = newRoot.id;
+  E(newRoot.id);
+
+  agregarLog('success', `Nueva raíz: nodo ${newRoot.id}`,
+    `La promoción llegó a la raíz. Se crea una nueva raíz (nodo ${newRoot.id}) con la clave <b>${promoKey}</b>. El árbol aumenta su altura.`,
+    currentLE);
+  render();
+}
+
+function dividirNodo(node) {
+  const total = node.keys.length;
+  // Posición de la clave a promover según la cátedra:
+  // - Orden impar: posición del medio (índice floor(total/2))
+  // - Orden par: menor de las claves mayores (índice floor(total/2) en una lista de M claves)
+  const medioIdx = Math.floor(total / 2);
+  const promoKey = node.keys[medioIdx];
+
+  const newNode = nuevoNodo(node.isLeaf);
+
+  if (TYPE === 'B+' && node.isLeaf) {
+    // Copia: la clave promocionada queda también en la hoja derecha
+    newNode.keys = node.keys.slice(medioIdx);
+    node.keys = node.keys.slice(0, medioIdx);
+    newNode.next = node.next;
+    node.next = newNode.id;
+  } else {
+    // B normal o B+ interno: la clave promo NO queda en ninguno
+    newNode.keys = node.keys.slice(medioIdx + 1);
+    if (node.children.length > 0) {
+      newNode.children = node.children.slice(medioIdx + 1);
+      node.children = node.children.slice(0, medioIdx + 1);
+    }
+    node.keys = node.keys.slice(0, medioIdx);
+  }
+
+  E(node.id);
+  E(newNode.id);
+
+  const tipoNodo = node.isLeaf ? 'hoja' : 'interno';
+  const reglaText = (total % 2 === 1)
+    ? `Orden impar (${total} claves): sube la clave del medio (posición ${medioIdx + 1}).`
+    : `Orden par (${total} claves): sube la menor de las claves mayores (posición ${medioIdx + 1}).`;
+
+  let detalle = `${reglaText} Sube <b>${promoKey}</b>.<br>` +
+    `Nodo ${node.id} (${tipoNodo}) queda: [${node.keys.join(', ') || '∅'}]<br>` +
+    `Nuevo nodo ${newNode.id} (${tipoNodo}): [${newNode.keys.join(', ')}]`;
+  if (TYPE === 'B+' && node.isLeaf) {
+    detalle += `<br><i>En B+ hoja: ${promoKey} es COPIA, queda también en la hoja derecha.</i>`;
+  }
+
+  agregarLog('overflow', `División de nodo ${node.id}`, detalle);
+
+  return { promoKey, newNodeId: newNode.id };
+}
+
+/* ============================================================
+   ELIMINACIÓN
+   ============================================================ */
+function eliminar() {
+  const v = document.getElementById('deleteKey').value;
+  if (v === '') return;
+  eliminarClave(parseInt(v));
+  document.getElementById('deleteKey').value = '';
+}
+
+function eliminarClave(k) {
+  currentLE = [];
+  if (!tree || tree.root === null) {
+    agregarLog('error', `-${k}: árbol vacío`, 'No hay nada que eliminar.', currentLE);
+    return;
+  }
+
+  // Para B+: SIEMPRE se elimina en hoja. Las guías internas son copias, no se eliminan.
+  // Para B: si está en interno se reemplaza con sucesor.
+
+  const path = [];
+  let curId = tree.root;
+  let found = false;
+  let foundNodeId = null;
+  let foundPos = -1;
+
+  while (true) {
+    const node = L(curId);
+    let i = 0;
+    while (i < node.keys.length && k > node.keys[i]) i++;
+
+    if (TYPE === 'B') {
+      // En árbol B la clave puede estar en cualquier nodo
+      if (i < node.keys.length && node.keys[i] === k) {
+        found = true; foundNodeId = curId; foundPos = i;
+        break;
+      }
+    } else {
+      // B+: solo si es hoja
+      if (node.isLeaf && i < node.keys.length && node.keys[i] === k) {
+        found = true; foundNodeId = curId; foundPos = i;
+        break;
+      }
+      // En B+ si k == keys[i] pero es interno, hay que bajar por el derecho
+      if (!node.isLeaf && i < node.keys.length && node.keys[i] === k) i++;
+    }
+
+    if (node.isLeaf) break;
+    path.push({ nodeId: curId, childIndex: i });
+    curId = node.children[i];
+  }
+
+  if (!found) {
+    if (TYPE === 'B+') {
+      agregarLog('error', `-${k}: clave no encontrada en hojas`,
+        `La clave <b>${k}</b> no existe como dato real en ninguna hoja. En árbol B+, si una clave figura solo como copia/guía en nodos internos pero no en hojas, <b>no se puede eliminar</b> (las copias guía no se modifican).`, currentLE);
+    } else {
+      agregarLog('error', `-${k}: clave no encontrada`,
+        `La clave <b>${k}</b> no existe en el árbol.`, currentLE);
+    }
+    render();
+    return;
+  }
+
+  const foundNode = tree.nodes[foundNodeId];
+
+  // CASO 1: Árbol B, clave en NODO INTERNO
+  if (TYPE === 'B' && !foundNode.isLeaf) {
+    agregarLog('info', `-${k}: clave ${k} encontrada en nodo interno ${foundNodeId}`,
+      `Regla de la cátedra: <i>"Si la clave a eliminar no está en una hoja, se debe reemplazar con la menor clave del subárbol derecho"</i>.`);
+
+    path.push({ nodeId: foundNodeId, childIndex: foundPos + 1 });
+    let succId = foundNode.children[foundPos + 1];
+    while (true) {
+      const node = L(succId);
+      if (node.isLeaf) {
+        const sucesor = node.keys[0];
+        foundNode.keys[foundPos] = sucesor;
+        E(foundNodeId);
+        agregarLog('info', `Sucesor: ${sucesor}`,
+          `La menor clave del subárbol derecho es <b>${sucesor}</b> (hoja ${succId}). Se reemplaza ${k} por ${sucesor} en nodo ${foundNodeId}. Ahora se elimina ${sucesor} de la hoja.`);
+        foundNodeId = succId;
+        foundPos = 0;
+        break;
+      }
+      path.push({ nodeId: succId, childIndex: 0 });
+      succId = node.children[0];
+    }
+  }
+
+  // Eliminar de la hoja
+  const leaf = tree.nodes[foundNodeId];
+  const removedKey = leaf.keys[foundPos];
+  leaf.keys.splice(foundPos, 1);
+  E(foundNodeId);
+
+  // En B+, actualizar la clave guía del padre si era la primera del nodo
+  if (TYPE === 'B+' && foundPos === 0 && leaf.keys.length > 0 && path.length > 0) {
+    // No actualizamos las guías internas (regla de la cátedra: las copias guía se mantienen)
+  }
+
+  agregarLog('info', `Eliminación en hoja ${foundNodeId}`,
+    `Se elimina <b>${removedKey}</b> de la hoja ${foundNodeId}. Queda con [${leaf.keys.join(', ') || '∅'}] (${leaf.keys.length} claves).`);
+
+  // Caso: raíz vacía
+  if (foundNodeId === tree.root && leaf.keys.length === 0) {
+    liberarNodo(foundNodeId);
+    tree.root = null;
+    agregarLog('success', `Árbol vacío`, `La raíz quedó sin claves. Árbol vacío. Nodo ${foundNodeId} liberado.`, currentLE);
+    render();
+    return;
+  }
+
+  // ¿Underflow?
+  if (leaf.keys.length >= minClaves() || foundNodeId === tree.root) {
+    agregarLog('success', `Sin underflow`,
+      `Nodo ${foundNodeId} tiene ${leaf.keys.length} claves ≥ ${minClaves()} (mínimo). No requiere acción adicional.`,
+      currentLE);
+    render();
+    return;
+  }
+
+  tratarUnderflow(foundNodeId, path);
+  agregarLog('success', `-${k} completado`, `Operación finalizada.`, currentLE);
+  render();
+}
+
+function tratarUnderflow(nodeId, path) {
+  if (path.length === 0) return;
+
+  const node = tree.nodes[nodeId];
+  const { nodeId: parentId, childIndex } = path[path.length - 1];
+  const parent = L(parentId);
+
+  const hasLeft = childIndex > 0;
+  const hasRight = childIndex < parent.children.length - 1;
+  const leftSibId = hasLeft ? parent.children[childIndex - 1] : null;
+  const rightSibId = hasRight ? parent.children[childIndex + 1] : null;
+
+  let extremoTxt = '';
+  if (!hasLeft) extremoTxt = ' Es <b>extremo izquierdo</b> (caso especial).';
+  else if (!hasRight) extremoTxt = ' Es <b>extremo derecho</b> (caso especial).';
+
+  agregarLog('underflow', `UNDERFLOW en nodo ${nodeId}`,
+    `Nodo ${nodeId} tiene ${node.keys.length} claves < ${minClaves()} (mínimo).${extremoTxt}<br>Política: <b>${nombrePolitica(POLICY)}</b>.<br>` +
+    `Hermanos: ${hasLeft ? 'izq=nodo '+leftSibId : '—'}, ${hasRight ? 'der=nodo '+rightSibId : '—'}.`);
+
+  // Caso especial: nodo extremo
+  let intentos;
+  if (!hasLeft) {
+    intentos = [{ dir: 'right', id: rightSibId, fallback: 'merge-right' }];
+  } else if (!hasRight) {
+    intentos = [{ dir: 'left', id: leftSibId, fallback: 'merge-left' }];
+  } else {
+    if (POLICY === 'izq') intentos = [{ dir: 'left', id: leftSibId, fallback: 'merge-left' }];
+    else if (POLICY === 'der') intentos = [{ dir: 'right', id: rightSibId, fallback: 'merge-right' }];
+    else if (POLICY === 'izq-der') intentos = [{ dir: 'left', id: leftSibId }, { dir: 'right', id: rightSibId, fallback: 'merge-left' }];
+    else if (POLICY === 'der-izq') intentos = [{ dir: 'right', id: rightSibId }, { dir: 'left', id: leftSibId, fallback: 'merge-right' }];
+  }
+
+  for (let intento of intentos) {
+    if (intento.id === null) continue;
+    const sib = L(intento.id);
+    if (sib.keys.length > minClaves()) {
+      if (intento.dir === 'left') redistribuirConIzquierdo(nodeId, intento.id, parentId, childIndex);
+      else redistribuirConDerecho(nodeId, intento.id, parentId, childIndex);
+      return;
+    } else {
+      agregarLog('info', `No puede redistribuir con nodo ${intento.id} (${intento.dir==='left'?'izq':'der'})`,
+        `Hermano ${intento.id} tiene ${sib.keys.length} claves = ${minClaves()} (mínimo). Si cede 1 le provoca underflow.`);
+    }
+  }
+
+  // Fusión
+  let fusionDir = null;
+  for (let intento of intentos) {
+    if (intento.fallback === 'merge-left' && hasLeft) { fusionDir = 'left'; break; }
+    if (intento.fallback === 'merge-right' && hasRight) { fusionDir = 'right'; break; }
+  }
+  if (fusionDir === null) fusionDir = hasLeft ? 'left' : 'right';
+
+  if (fusionDir === 'left') fusionarConIzquierdo(nodeId, leftSibId, parentId, childIndex, path);
+  else fusionarConDerecho(nodeId, rightSibId, parentId, childIndex, path);
+}
+
+function redistribuirConIzquierdo(nodeId, sibId, parentId, childIndex) {
+  const node = tree.nodes[nodeId];
+  const sib = tree.nodes[sibId];
+  const parent = tree.nodes[parentId];
+  const sepIdx = childIndex - 1;
+
+  if (TYPE === 'B+' && node.isLeaf) {
+    const moved = sib.keys.pop();
+    node.keys.unshift(moved);
+    parent.keys[sepIdx] = node.keys[0];
+    agregarLog('success', `Redistribución con hermano izquierdo (B+ hoja)`,
+      `Se mueve <b>${moved}</b> de la hoja ${sibId} a la hoja ${nodeId}. Se actualiza el separador del padre a ${node.keys[0]}.`);
+  } else {
+    const fromParent = parent.keys[sepIdx];
+    const toParent = sib.keys.pop();
+    node.keys.unshift(fromParent);
+    parent.keys[sepIdx] = toParent;
+    if (!node.isLeaf) {
+      const movedChild = sib.children.pop();
+      node.children.unshift(movedChild);
+    }
+    agregarLog('success', `Redistribución con hermano izquierdo`,
+      `Rotación: la clave <b>${fromParent}</b> baja del padre al nodo ${nodeId}. La clave <b>${toParent}</b> sube del hermano ${sibId} al padre.`);
+  }
+
+  E(sibId); E(parentId); E(nodeId);
+}
+
+function redistribuirConDerecho(nodeId, sibId, parentId, childIndex) {
+  const node = tree.nodes[nodeId];
+  const sib = tree.nodes[sibId];
+  const parent = tree.nodes[parentId];
+  const sepIdx = childIndex;
+
+  if (TYPE === 'B+' && node.isLeaf) {
+    const moved = sib.keys.shift();
+    node.keys.push(moved);
+    parent.keys[sepIdx] = sib.keys[0];
+    agregarLog('success', `Redistribución con hermano derecho (B+ hoja)`,
+      `Se mueve <b>${moved}</b> de la hoja ${sibId} a la hoja ${nodeId}. Se actualiza el separador del padre a ${sib.keys[0]}.`);
+  } else {
+    const fromParent = parent.keys[sepIdx];
+    const toParent = sib.keys.shift();
+    node.keys.push(fromParent);
+    parent.keys[sepIdx] = toParent;
+    if (!node.isLeaf) {
+      const movedChild = sib.children.shift();
+      node.children.push(movedChild);
+    }
+    agregarLog('success', `Redistribución con hermano derecho`,
+      `Rotación: la clave <b>${fromParent}</b> baja del padre al nodo ${nodeId}. La clave <b>${toParent}</b> sube del hermano ${sibId} al padre.`);
+  }
+
+  E(nodeId); E(sibId); E(parentId);
+}
+
+function fusionarConIzquierdo(nodeId, sibId, parentId, childIndex, path) {
+  const node = tree.nodes[nodeId];
+  const sib = tree.nodes[sibId];
+  const parent = tree.nodes[parentId];
+  const sepIdx = childIndex - 1;
+  const separador = parent.keys[sepIdx];
+
+  if (TYPE === 'B+' && node.isLeaf) {
+    sib.keys = sib.keys.concat(node.keys);
+    sib.next = node.next;
+    agregarLog('underflow', `Fusión con hermano izquierdo (B+ hoja)`,
+      `Hoja ${sibId} + hoja ${nodeId} → [${sib.keys.join(', ')}]. La clave separadora <b>${separador}</b> se elimina del padre (en B+ no se incluye el separador).`);
+  } else {
+    sib.keys.push(separador);
+    sib.keys = sib.keys.concat(node.keys);
+    sib.children = sib.children.concat(node.children);
+    agregarLog('underflow', `Fusión con hermano izquierdo`,
+      `Nodo ${sibId} + separador <b>${separador}</b> + nodo ${nodeId} → [${sib.keys.join(', ')}]. Nodo ${nodeId} se libera.`);
+  }
+
+  parent.keys.splice(sepIdx, 1);
+  parent.children.splice(childIndex, 1);
+  liberarNodo(nodeId);
+  E(sibId); E(parentId);
+
+  verificarUnderflowPadre(parentId, path);
+}
+
+function fusionarConDerecho(nodeId, sibId, parentId, childIndex, path) {
+  const node = tree.nodes[nodeId];
+  const sib = tree.nodes[sibId];
+  const parent = tree.nodes[parentId];
+  const sepIdx = childIndex;
+  const separador = parent.keys[sepIdx];
+
+  if (TYPE === 'B+' && node.isLeaf) {
+    node.keys = node.keys.concat(sib.keys);
+    node.next = sib.next;
+    agregarLog('underflow', `Fusión con hermano derecho (B+ hoja)`,
+      `Hoja ${nodeId} + hoja ${sibId} → [${node.keys.join(', ')}]. Separador <b>${separador}</b> se elimina del padre.`);
+  } else {
+    node.keys.push(separador);
+    node.keys = node.keys.concat(sib.keys);
+    node.children = node.children.concat(sib.children);
+    agregarLog('underflow', `Fusión con hermano derecho`,
+      `Nodo ${nodeId} + separador <b>${separador}</b> + nodo ${sibId} → [${node.keys.join(', ')}]. Nodo ${sibId} se libera.`);
+  }
+
+  parent.keys.splice(sepIdx, 1);
+  parent.children.splice(childIndex + 1, 1);
+  liberarNodo(sibId);
+  E(nodeId); E(parentId);
+
+  verificarUnderflowPadre(parentId, path);
+}
+
+function verificarUnderflowPadre(parentId, path) {
+  const parent = tree.nodes[parentId];
+
+  if (parentId === tree.root && parent.keys.length === 0) {
+    if (parent.children.length === 1) {
+      const newRoot = parent.children[0];
+      liberarNodo(parentId);
+      tree.root = newRoot;
+      agregarLog('success', `Raíz vacía → nuevo nodo raíz: ${newRoot}`,
+        `La raíz quedó sin claves. Nodo ${parentId} liberado. El árbol baja de altura.`);
+    } else {
+      liberarNodo(parentId);
+      tree.root = null;
+    }
+    return;
+  }
+
+  if (parentId === tree.root) return;
+
+  if (parent.keys.length < minClaves()) {
+    path.pop();
+    tratarUnderflow(parentId, path);
+  }
+}
+
+/* ============================================================
+   LOG
+   ============================================================ */
+function agregarLog(tipo, titulo, contenido, leList = null) {
+  logSteps.push({ tipo, titulo, contenido, le: leList ? [...leList] : null });
+  renderLog();
+}
+
+function renderLog() {
+  const cont = document.getElementById('logContainer');
+  cont.innerHTML = '';
+  for (let s of logSteps) {
+    const div = document.createElement('div');
+    div.className = 'log-step ' + (s.tipo || '');
+    let html = `<div class="step-title">${s.titulo}</div><div>${s.contenido}</div>`;
+    if (s.le && s.le.length > 0) {
+      html += '<div class="le-summary"><b>L/E:</b> ' +
+        s.le.map(x => `<span class="le-tag ${x[0]==='E'?'write':''}">${x}</span>`).join('') + '</div>';
+    }
+    div.innerHTML = html;
+    cont.appendChild(div);
+  }
+  cont.scrollTop = cont.scrollHeight;
+}
+
+function ejecutarSecuencia() {
+  const seq = document.getElementById('seqInput').value.trim();
+  if (!seq) return;
+  const ops = seq.split(/[,\s]+/).filter(s => s);
+  for (let op of ops) {
+    op = op.trim();
+    if (op.startsWith('+')) insertarClave(parseInt(op.slice(1)));
+    else if (op.startsWith('-')) eliminarClave(parseInt(op.slice(1)));
+  }
+  document.getElementById('seqInput').value = '';
+}
+
+/* ============================================================
+   PRESETS
+   ============================================================ */
+const PRESETS = {
+  ej7: {
+    tipo: 'B', orden: 5, politica: 'izq',
+    root: 2,
+    nodes: {
+      2: { id: 2, isLeaf: false, keys: [220,390,455,541], children: [0,1,4,5,3] },
+      0: { id: 0, isLeaf: true, keys: [10,150], children: [] },
+      1: { id: 1, isLeaf: true, keys: [225,241,331,360], children: [] },
+      4: { id: 4, isLeaf: true, keys: [400,407], children: [] },
+      5: { id: 5, isLeaf: true, keys: [508,533], children: [] },
+      3: { id: 3, isLeaf: true, keys: [690,823], children: [] }
+    },
+    nextNodeId: 6,
+    desc: 'Ej 7: B orden 5, política izquierda',
+    ops: '+320,-390,-400,-533'
+  },
+  ej8: {
+    tipo: 'B', orden: 4, politica: 'der',
+    root: 2,
+    nodes: {
+      2: { id: 2, isLeaf: false, keys: [66], children: [0,1] },
+      0: { id: 0, isLeaf: true, keys: [22,32,50], children: [] },
+      1: { id: 1, isLeaf: true, keys: [77,79,92], children: [] }
+    },
+    nextNodeId: 3,
+    desc: 'Ej 8: B orden 4, política derecha',
+    ops: '+5,+9,+80,+15,-92,-77'
+  },
+  ej9: {
+    tipo: 'B', orden: 6, politica: 'der-izq',
+    root: 0,
+    nodes: {
+      0: { id: 0, isLeaf: true, keys: [34,56,78,100,176], children: [] }
+    },
+    nextNodeId: 1,
+    desc: 'Ej 9: B orden 6, política der-izq',
+    ops: '+15,+71,+3,+48,+24,+38,-56,-100'
+  },
+  ej10: {
+    tipo: 'B', orden: 5, politica: 'der',
+    root: 2,
+    nodes: {
+      2: { id: 2, isLeaf: false, keys: [315,485,547,639], children: [0,1,4,5,3] },
+      0: { id: 0, isLeaf: true, keys: [148,223], children: [] },
+      1: { id: 1, isLeaf: true, keys: [333,390,442,454], children: [] },
+      4: { id: 4, isLeaf: true, keys: [508,511], children: [] },
+      5: { id: 5, isLeaf: true, keys: [614,633], children: [] },
+      3: { id: 3, isLeaf: true, keys: [789,915], children: [] }
+    },
+    nextNodeId: 6,
+    desc: 'Ej 10: B orden 5, política derecha',
+    ops: '+450,-485,-511,-614'
+  },
+  ej13: {
+    tipo: 'B', orden: 6, politica: 'izq-der',
+    root: 2,
+    nodes: {
+      2: { id: 2, isLeaf: false, keys: [216,460,570,689,777], children: [0,1,4,5,3,6] },
+      0: { id: 0, isLeaf: true, keys: [100,159,171], children: [] },
+      1: { id: 1, isLeaf: true, keys: [222,256,358,380,423], children: [] },
+      4: { id: 4, isLeaf: true, keys: [505,522], children: [] },
+      5: { id: 5, isLeaf: true, keys: [586,599,615,623,680], children: [] },
+      3: { id: 3, isLeaf: true, keys: [703,725], children: [] },
+      6: { id: 6, isLeaf: true, keys: [789,915,1000], children: [] }
+    },
+    nextNodeId: 7,
+    desc: 'Ej 13: B orden 6, política izq-der',
+    ops: '+300,+577,-586,-570,-380,-460'
+  },
+  ej14: {
+    tipo: 'B+', orden: 4, politica: 'der',
+    root: 4,
+    nodes: {
+      4: { id: 4, isLeaf: false, keys: [340,400,500], children: [0,1,2,3] },
+      0: { id: 0, isLeaf: true, keys: [11,50,77], children: [], next: 1 },
+      1: { id: 1, isLeaf: true, keys: [340,350,360], children: [], next: 2 },
+      2: { id: 2, isLeaf: true, keys: [402,410,420], children: [], next: 3 },
+      3: { id: 3, isLeaf: true, keys: [520,530], children: [], next: -1 }
+    },
+    nextNodeId: 5,
+    desc: 'Ej 14: B+ orden 4, política derecha',
+    ops: '+80,-400,-50,-11,-77',
+    nota: 'Atención: -400 es una trampa, 400 solo existe como guía en nodo 4, no en hojas.'
+  },
+  ej15: {
+    tipo: 'B+', orden: 4, politica: 'der',
+    root: 2,
+    nodes: {
+      2: { id: 2, isLeaf: false, keys: [66], children: [0,1] },
+      0: { id: 0, isLeaf: true, keys: [23,45], children: [], next: 1 },
+      1: { id: 1, isLeaf: true, keys: [66,67,89], children: [], next: -1 }
+    },
+    nextNodeId: 3,
+    desc: 'Ej 15: B+ orden 4, política derecha',
+    ops: '+120,+110,+52,+70,+15,-45,-52,+22,+19,-66,-22,-19,-23,-89'
+  },
+  ej17: {
+    tipo: 'B+', orden: 4, politica: 'izq-der',
+    root: 7,
+    nodes: {
+      7: { id: 7, isLeaf: false, keys: [69], children: [2,6] },
+      2: { id: 2, isLeaf: false, keys: [30,51], children: [0,1,3] },
+      6: { id: 6, isLeaf: false, keys: [94], children: [4,5] },
+      0: { id: 0, isLeaf: true, keys: [5,10,20], children: [], next: 1 },
+      1: { id: 1, isLeaf: true, keys: [30,40], children: [], next: 3 },
+      3: { id: 3, isLeaf: true, keys: [51,60], children: [], next: 4 },
+      4: { id: 4, isLeaf: true, keys: [69,80], children: [], next: 5 },
+      5: { id: 5, isLeaf: true, keys: [104], children: [], next: -1 }
+    },
+    nextNodeId: 8,
+    desc: 'Ej 17: B+ orden 4, política izq-der',
+    ops: '+4,+44,-94,-104',
+    nota: 'Atención: -94 es trampa, solo está como guía.'
+  },
+  ej18: {
+    tipo: 'B+', orden: 6, politica: 'der',
+    root: 2,
+    nodes: {
+      2: { id: 2, isLeaf: false, keys: [10,60,115,145,179], children: [0,1,3,4,5,6] },
+      0: { id: 0, isLeaf: true, keys: [1,5], children: [], next: 1 },
+      1: { id: 1, isLeaf: true, keys: [34,44], children: [], next: 3 },
+      3: { id: 3, isLeaf: true, keys: [60,113], children: [], next: 4 },
+      4: { id: 4, isLeaf: true, keys: [120,125,131,139], children: [], next: 5 },
+      5: { id: 5, isLeaf: true, keys: [145,153,158,160,177], children: [], next: 6 },
+      6: { id: 6, isLeaf: true, keys: [179,190], children: [], next: -1 }
+    },
+    nextNodeId: 7,
+    desc: 'Ej 18: B+ orden 6, política derecha',
+    ops: '+159,-5,-190'
+  },
+  ej19: {
+    tipo: 'B', orden: 5, politica: 'izq-der',
+    root: 8,
+    nodes: {
+      8: { id: 8, isLeaf: false, keys: [150], children: [2,7] },
+      2: { id: 2, isLeaf: false, keys: [120], children: [0,3] },
+      7: { id: 7, isLeaf: false, keys: [210,300], children: [4,6,1] },
+      0: { id: 0, isLeaf: true, keys: [30,110], children: [] },
+      3: { id: 3, isLeaf: true, keys: [130], children: [] },
+      4: { id: 4, isLeaf: true, keys: [160,170,180,200], children: [] },
+      6: { id: 6, isLeaf: true, keys: [220,230,240,250], children: [] },
+      1: { id: 1, isLeaf: true, keys: [400,500,600,700], children: [] }
+    },
+    nextNodeId: 9,
+    desc: 'Ej 19: B orden 5, política izq-der',
+    ops: '+165,+260,+800,-110'
+  },
+  ej20: {
+    tipo: 'B+', orden: 5, politica: 'izq-der',
+    root: 8,
+    nodes: {
+      8: { id: 8, isLeaf: false, keys: [70], children: [2,7] },
+      2: { id: 2, isLeaf: false, keys: [50], children: [0,4] },
+      7: { id: 7, isLeaf: false, keys: [90,120,210,300], children: [5,6,3,9,1] },
+      0: { id: 0, isLeaf: true, keys: [40], children: [], next: 4 },
+      4: { id: 4, isLeaf: true, keys: [50], children: [], next: 5 },
+      5: { id: 5, isLeaf: true, keys: [70,80], children: [], next: 6 },
+      6: { id: 6, isLeaf: true, keys: [90,100], children: [], next: 3 },
+      3: { id: 3, isLeaf: true, keys: [120,200], children: [], next: 9 },
+      9: { id: 9, isLeaf: true, keys: [210,220,230,240], children: [], next: 1 },
+      1: { id: 1, isLeaf: true, keys: [400,500], children: [], next: -1 }
+    },
+    nextNodeId: 10,
+    desc: 'Ej 20: B+ orden 5, política izq-der',
+    ops: '+250,-300,-40',
+    nota: 'Atención: -300 es trampa, solo está como guía.'
+  }
+};
+
+function cargarPreset(name) {
+  const p = PRESETS[name];
+  if (!p) return;
+  M = p.orden;
+  TYPE = p.tipo;
+  POLICY = p.politica;
+  document.getElementById('orden').value = M;
+  document.getElementById('tipo').value = TYPE;
+  document.querySelector(`input[name="politica"][value="${POLICY}"]`).checked = true;
+
+  tree = { root: p.root, nodes: {} };
+  for (let k in p.nodes) {
+    tree.nodes[k] = JSON.parse(JSON.stringify(p.nodes[k]));
+  }
+  nodeCounter = p.nextNodeId;
+  freeNodes = [];
+  logSteps = [];
+  document.getElementById('seqInput').value = p.ops || '';
+
+  let desc = `Tipo: <b>${TYPE}</b> | Orden: <b>${M}</b> | Política: <b>${nombrePolitica(POLICY)}</b><br>` +
+             `Mín claves: ${minClaves()} | Máx claves: ${maxClaves()}`;
+  if (p.ops) desc += `<br>Operaciones sugeridas: <code style="color:var(--accent)">${p.ops}</code>`;
+  if (p.nota) desc += `<br><i style="color:var(--warn)">⚠ ${p.nota}</i>`;
+
+  agregarLog('start', `📋 ${p.desc}`, desc);
+  render();
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function render() {
+  const svg = document.getElementById('canvas');
+  const empty = document.getElementById('emptyState');
+  svg.innerHTML = '';
+
+  // actualizar tags
+  document.getElementById('tagTipo').textContent = TYPE;
+  document.getElementById('tagOrden').textContent = M;
+  document.getElementById('tagPolitica').textContent = nombrePolitica(POLICY);
+  document.getElementById('tagMin').textContent = minClaves();
+  document.getElementById('tagMax').textContent = maxClaves();
+  document.getElementById('tagNodos').textContent = tree ? Object.keys(tree.nodes).length : 0;
+
+  const tagFree = document.getElementById('tagFree');
+  if (freeNodes.length > 0) {
+    tagFree.style.display = '';
+    document.getElementById('tagFreeList').textContent = freeNodes.join(',');
+  } else {
+    tagFree.style.display = 'none';
+  }
+
+  if (!tree || tree.root === null) {
+    empty.style.display = 'block';
+    svg.setAttribute('viewBox', '0 0 800 500');
+    return;
+  }
+  empty.style.display = 'none';
+
+  const layout = computeLayout(tree.root);
+  if (!layout) return;
+
+  const PAD = 60;
+  const width = layout.width + PAD * 2;
+  const height = layout.height + PAD * 2;
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.setAttribute('width', Math.max(width, 800));
+  svg.setAttribute('height', Math.max(height, 500));
+
+  drawEdges(svg, layout, PAD, PAD);
+  if (TYPE === 'B+') drawLeafLinks(svg, layout, PAD, PAD);
+  drawNodes(svg, layout, PAD, PAD);
+}
+
+function computeLayout(rootId) {
+  const positions = {};
+  const SPACING = 24;
+  const LEVEL_HEIGHT = 100;
+  let leafX = 0;
+
+  function nodeWidth(node) {
+    return Math.max(48, node.keys.length * 42);
+  }
+
+  function assignX(id, depth) {
+    const node = tree.nodes[id];
+    if (!node) return null;
+    if (node.isLeaf) {
+      const w = nodeWidth(node);
+      const x = leafX + w / 2;
+      positions[id] = { x, y: depth * LEVEL_HEIGHT, w, node };
+      leafX += w + SPACING;
+      return { x, w };
+    }
+    const childRes = [];
+    for (let c of node.children) {
+      const r = assignX(c, depth + 1);
+      if (r) childRes.push(r);
+    }
+    if (childRes.length === 0) {
+      const w = nodeWidth(node);
+      const x = leafX + w/2;
+      positions[id] = { x, y: depth * LEVEL_HEIGHT, w, node };
+      leafX += w + SPACING;
+      return { x, w };
+    }
+    const xMin = childRes[0].x;
+    const xMax = childRes[childRes.length - 1].x;
+    const x = (xMin + xMax) / 2;
+    const w = nodeWidth(node);
+    positions[id] = { x, y: depth * LEVEL_HEIGHT, w, node };
+    return { x, w };
+  }
+
+  assignX(rootId, 0);
+
+  let maxX = 0, maxY = 0;
+  for (let id in positions) {
+    const p = positions[id];
+    maxX = Math.max(maxX, p.x + p.w/2);
+    maxY = Math.max(maxY, p.y + 36);
+  }
+  return { positions, width: maxX, height: maxY };
+}
+
+function drawEdges(svg, layout, ox, oy) {
+  const ns = 'http://www.w3.org/2000/svg';
+  for (let id in layout.positions) {
+    const p = layout.positions[id];
+    if (p.node.isLeaf) continue;
+    const childCount = p.node.children.length;
+    const childWidth = p.w / childCount;
+    for (let i = 0; i < childCount; i++) {
+      const cid = p.node.children[i];
+      const cp = layout.positions[cid];
+      if (!cp) continue;
+      // origen: borde inferior del padre, en la división correspondiente
+      const fromX = (p.x - p.w/2) + childWidth * (i + 0.5);
+      const line = document.createElementNS(ns, 'line');
+      line.setAttribute('x1', fromX + ox);
+      line.setAttribute('y1', p.y + oy + 36);
+      line.setAttribute('x2', cp.x + ox);
+      line.setAttribute('y2', cp.y + oy);
+      line.setAttribute('class', 'edge');
+      svg.appendChild(line);
+    }
+  }
+}
+
+function drawLeafLinks(svg, layout, ox, oy) {
+  const ns = 'http://www.w3.org/2000/svg';
+  for (let id in layout.positions) {
+    const p = layout.positions[id];
+    if (!p.node.isLeaf) continue;
+    if (p.node.next === undefined || p.node.next === -1) continue;
+    const np = layout.positions[p.node.next];
+    if (!np) continue;
+    const line = document.createElementNS(ns, 'line');
+    line.setAttribute('x1', p.x + p.w/2 + ox);
+    line.setAttribute('y1', p.y + oy + 18);
+    line.setAttribute('x2', np.x - np.w/2 + ox);
+    line.setAttribute('y2', np.y + oy + 18);
+    line.setAttribute('class', 'leaf-link');
+    svg.appendChild(line);
+    // flecha
+    const arrow = document.createElementNS(ns, 'polygon');
+    const ax = np.x - np.w/2 + ox;
+    const ay = np.y + oy + 18;
+    arrow.setAttribute('points', `${ax-6},${ay-3} ${ax-6},${ay+3} ${ax},${ay}`);
+    arrow.setAttribute('fill', 'var(--info)');
+    arrow.setAttribute('opacity', '0.7');
+    svg.appendChild(arrow);
+  }
+}
+
+function drawNodes(svg, layout, ox, oy) {
+  const ns = 'http://www.w3.org/2000/svg';
+  for (let id in layout.positions) {
+    const p = layout.positions[id];
+    const node = p.node;
+    const g = document.createElementNS(ns, 'g');
+    g.setAttribute('transform', `translate(${p.x + ox - p.w/2}, ${p.y + oy})`);
+
+    let cls = 'node-rect';
+    if (node.isLeaf) cls += ' leaf';
+    if (parseInt(id) === tree.root) cls += ' root';
+
+    const rect = document.createElementNS(ns, 'rect');
+    rect.setAttribute('width', p.w);
+    rect.setAttribute('height', 36);
+    rect.setAttribute('class', cls);
+    g.appendChild(rect);
+
+    const label = document.createElementNS(ns, 'text');
+    label.setAttribute('x', p.w/2);
+    label.setAttribute('y', -8);
+    label.setAttribute('class', 'node-id');
+    label.textContent = `nodo ${id}${parseInt(id)===tree.root?' (raíz)':''}${node.isLeaf?' [h]':' [i]'}`;
+    g.appendChild(label);
+
+    const keys = node.keys;
+    if (keys.length === 0) {
+      const t = document.createElementNS(ns, 'text');
+      t.setAttribute('x', p.w/2);
+      t.setAttribute('y', 23);
+      t.setAttribute('class', 'node-key');
+      t.setAttribute('fill', 'var(--muted)');
+      t.textContent = '∅';
+      g.appendChild(t);
+    } else {
+      const cellW = p.w / keys.length;
+      for (let i = 0; i < keys.length; i++) {
+        const t = document.createElementNS(ns, 'text');
+        t.setAttribute('x', cellW * (i + 0.5));
+        t.setAttribute('y', 23);
+        t.setAttribute('class', 'node-key');
+        t.textContent = keys[i];
+        g.appendChild(t);
+        if (i > 0) {
+          const sep = document.createElementNS(ns, 'line');
+          sep.setAttribute('x1', cellW * i);
+          sep.setAttribute('y1', 4);
+          sep.setAttribute('x2', cellW * i);
+          sep.setAttribute('y2', 32);
+          sep.setAttribute('stroke', '#4a5563');
+          sep.setAttribute('stroke-width', '0.8');
+          g.appendChild(sep);
+        }
+      }
+    }
+    svg.appendChild(g);
+  }
+}
+
+/* ============================================================
+   BINDINGS
+   ============================================================ */
+['orden','tipo'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    M = parseInt(document.getElementById('orden').value);
+    TYPE = document.getElementById('tipo').value;
+    document.getElementById('tagMin').textContent = minClaves();
+    document.getElementById('tagMax').textContent = maxClaves();
+    document.getElementById('tagTipo').textContent = TYPE;
+    document.getElementById('tagOrden').textContent = M;
+  });
+});
+document.querySelectorAll('input[name="politica"]').forEach(r => {
+  r.addEventListener('change', e => {
+    POLICY = e.target.value;
+    document.getElementById('tagPolitica').textContent = nombrePolitica(POLICY);
+  });
+});
+document.getElementById('insertKey').addEventListener('keypress', e => e.key === 'Enter' && insertar());
+document.getElementById('deleteKey').addEventListener('keypress', e => e.key === 'Enter' && eliminar());
+document.getElementById('seqInput').addEventListener('keypress', e => e.key === 'Enter' && ejecutarSecuencia());
+
+reiniciar();
+</script>
+</body>
+</html>
