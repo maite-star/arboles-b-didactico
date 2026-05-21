@@ -17,11 +17,9 @@ Estudiante de la **Licenciatura en Sistemas**
 
 ## Demo online
 
-Próximamente en GitHub Pages:
+Disponible en GitHub Pages:
 
-`https://TU-USUARIO.github.io/TU-REPO/`
-
-Cuando actives Pages, reemplazá el link anterior por la URL real del proyecto.
+`https://maite-star.github.io/arboles-b-didactico/`
 
 ## Screenshots
 
@@ -76,8 +74,8 @@ Está orientado a:
 ### Clonar con Git
 
 ```bash
-git clone https://github.com/TU-USUARIO/TU-REPO.git
-cd TU-REPO
+git clone https://github.com/maite-star/arboles-b-didactico.git
+cd arboles-b-didactico
 ```
 
 Después abrí `index.html` haciendo doble clic o desde el navegador.
