@@ -1300,7 +1300,7 @@ function computeLayout(rootId) {
   let leafX = 0;
 
   function nodeWidth(node) {
-    return Math.max(48, node.keys.length * 42);
+    return Math.max(48, maxClaves() * 42);
   }
 
   function assignX(id, depth) {
@@ -1396,6 +1396,7 @@ function drawLeafLinks(svg, layout, ox, oy) {
 
 function drawNodes(svg, layout, ox, oy) {
   const ns = 'http://www.w3.org/2000/svg';
+  const slotCount = maxClaves();
   for (let id in layout.positions) {
     const p = layout.positions[id];
     const node = p.node;
@@ -1420,33 +1421,44 @@ function drawNodes(svg, layout, ox, oy) {
     g.appendChild(label);
 
     const keys = node.keys;
-    if (keys.length === 0) {
+    const cellW = p.w / slotCount;
+    for (let i = 1; i < slotCount; i++) {
+      const sep = document.createElementNS(ns, 'line');
+      sep.setAttribute('x1', cellW * i);
+      sep.setAttribute('y1', 4);
+      sep.setAttribute('x2', cellW * i);
+      sep.setAttribute('y2', 32);
+      sep.setAttribute('stroke', '#4a5563');
+      sep.setAttribute('stroke-width', '0.8');
+      g.appendChild(sep);
+    }
+    for (let i = 0; i < keys.length; i++) {
       const t = document.createElementNS(ns, 'text');
-      t.setAttribute('x', p.w/2);
+      t.setAttribute('x', cellW * (i + 0.5));
       t.setAttribute('y', 23);
       t.setAttribute('class', 'node-key');
-      t.setAttribute('fill', 'var(--muted)');
-      t.textContent = '∅';
+      t.textContent = keys[i];
       g.appendChild(t);
+    }
+    if (keys.length === 0) {
+      const hint = document.createElementNS(ns, 'text');
+      hint.setAttribute('x', p.w/2);
+      hint.setAttribute('y', 23);
+      hint.setAttribute('class', 'node-key');
+      hint.setAttribute('fill', 'var(--muted)');
+      hint.setAttribute('opacity', '0.55');
+      hint.textContent = 'vacio';
+      g.appendChild(hint);
     } else {
-      const cellW = p.w / keys.length;
-      for (let i = 0; i < keys.length; i++) {
-        const t = document.createElementNS(ns, 'text');
-        t.setAttribute('x', cellW * (i + 0.5));
-        t.setAttribute('y', 23);
-        t.setAttribute('class', 'node-key');
-        t.textContent = keys[i];
-        g.appendChild(t);
-        if (i > 0) {
-          const sep = document.createElementNS(ns, 'line');
-          sep.setAttribute('x1', cellW * i);
-          sep.setAttribute('y1', 4);
-          sep.setAttribute('x2', cellW * i);
-          sep.setAttribute('y2', 32);
-          sep.setAttribute('stroke', '#4a5563');
-          sep.setAttribute('stroke-width', '0.8');
-          g.appendChild(sep);
-        }
+      for (let i = keys.length; i < slotCount; i++) {
+        const empty = document.createElementNS(ns, 'text');
+        empty.setAttribute('x', cellW * (i + 0.5));
+        empty.setAttribute('y', 23);
+        empty.setAttribute('class', 'node-key');
+        empty.setAttribute('fill', 'var(--muted)');
+        empty.setAttribute('opacity', '0.35');
+        empty.textContent = '·';
+        g.appendChild(empty);
       }
     }
     svg.appendChild(g);
