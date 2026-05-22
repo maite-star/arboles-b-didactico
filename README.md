@@ -36,6 +36,7 @@ Cuando subas esas imágenes, esta sección se puede volver a cambiar para mostra
 Este repositorio reúne una herramienta educativa para estudiar:
 
 - Inserciones y eliminaciones en árboles B y B+
+- Resolución final del árbol junto con la justificación paso a paso de cada operación
 - Overflow y underflow
 - Redistribución y fusión
 - Políticas de resolución de underflow
@@ -54,6 +55,8 @@ Está orientado a:
 - Visualización del árbol mediante SVG
 - Soporte para árboles **B** y **B+**
 - Operaciones de **alta (+)** y **baja (-)** con explicación paso a paso
+- Visualización del **estado resultante** de cada operación o secuencia en el árbol central
+- Registro del **paso a paso** en la pizarra lateral, con justificación de decisiones
 - Presets con ejercicios de la **práctica 4**
 - Indicadores de **lecturas/escrituras (L/E)**
 - Explicación visual de **overflow**, **underflow**, **redistribución** y **fusión**

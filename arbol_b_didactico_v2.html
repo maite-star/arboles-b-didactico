@@ -109,6 +109,8 @@
   button.warn:hover { background: #ea580c; }
   button.info { background: #0284c7; }
   button.info:hover { background: #0ea5e9; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+  button:disabled:hover { background: inherit; transform: none; }
   .row { display: flex; gap: 4px; }
   .row > input { flex: 1; }
   .config-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
@@ -363,6 +365,7 @@
     <div class="row">
       <button onclick="reiniciar()">🌱 Nuevo</button>
       <button class="secondary" onclick="limpiarLog()">↺ Log</button>
+      <button class="secondary" id="undoBtn" onclick="deshacerPaso()" disabled>↶ Atrás</button>
     </div>
 
     <h2 style="margin-top:18px">▸ Operaciones</h2>
@@ -484,6 +487,7 @@ let nodeCounter = 0;
 let freeNodes = [];
 let logSteps = [];
 let currentLE = [];
+let historyStack = [];
 
 function nuevoNodo(isLeaf) {
   let id;
@@ -514,6 +518,61 @@ function minClaves() { return Math.ceil(M/2) - 1; }
 function maxClaves() { return M - 1; }
 function minHijos() { return Math.ceil(M/2); }
 
+function deepClone(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+function snapshotState() {
+  return {
+    tree: deepClone(tree),
+    M,
+    TYPE,
+    POLICY,
+    nodeCounter,
+    freeNodes: [...freeNodes],
+    logSteps: deepClone(logSteps)
+  };
+}
+
+function syncControlsFromState() {
+  document.getElementById('orden').value = M;
+  document.getElementById('tipo').value = TYPE;
+  const radio = document.querySelector(`input[name="politica"][value="${POLICY}"]`);
+  if (radio) radio.checked = true;
+  document.getElementById('tagMin').textContent = minClaves();
+  document.getElementById('tagMax').textContent = maxClaves();
+  document.getElementById('tagTipo').textContent = TYPE;
+  document.getElementById('tagOrden').textContent = M;
+  document.getElementById('tagPolitica').textContent = nombrePolitica(POLICY);
+}
+
+function updateUndoButton() {
+  const btn = document.getElementById('undoBtn');
+  if (!btn) return;
+  btn.disabled = historyStack.length === 0;
+}
+
+function guardarPasoAnterior() {
+  historyStack.push(snapshotState());
+  updateUndoButton();
+}
+
+function deshacerPaso() {
+  if (historyStack.length === 0) return;
+  const prev = historyStack.pop();
+  tree = deepClone(prev.tree);
+  M = prev.M;
+  TYPE = prev.TYPE;
+  POLICY = prev.POLICY;
+  nodeCounter = prev.nodeCounter;
+  freeNodes = [...prev.freeNodes];
+  logSteps = deepClone(prev.logSteps);
+  currentLE = [];
+  syncControlsFromState();
+  updateUndoButton();
+  render();
+}
+
 function reiniciar() {
   M = parseInt(document.getElementById('orden').value);
   TYPE = document.getElementById('tipo').value;
@@ -523,8 +582,10 @@ function reiniciar() {
   nodeCounter = 0;
   freeNodes = [];
   logSteps = [];
+  historyStack = [];
   agregarLog('start', `Árbol ${TYPE} de orden ${M} (vacío)`,
     `Máximo de claves por nodo: <b>${maxClaves()}</b>. Mínimo (no raíz): <b>${minClaves()}</b>. Política: <b>${nombrePolitica(POLICY)}</b>.`);
+  updateUndoButton();
   render();
 }
 
@@ -552,6 +613,7 @@ function insertarClave(k) {
   if (!tree) reiniciar();
 
   if (tree.root === null) {
+    guardarPasoAnterior();
     const root = nuevoNodo(true);
     root.keys.push(k);
     tree.root = root.id;
@@ -583,6 +645,7 @@ function insertarClave(k) {
     return;
   }
 
+  guardarPasoAnterior();
   let i = 0;
   while (i < leaf.keys.length && leaf.keys[i] < k) i++;
   leaf.keys.splice(i, 0, k);
@@ -752,6 +815,7 @@ function eliminarClave(k) {
     return;
   }
 
+  guardarPasoAnterior();
   const foundNode = tree.nodes[foundNodeId];
 
   // CASO 1: Árbol B, clave en NODO INTERNO
@@ -1236,6 +1300,7 @@ function cargarPreset(name) {
   nodeCounter = p.nextNodeId;
   freeNodes = [];
   logSteps = [];
+  historyStack = [];
   document.getElementById('seqInput').value = p.ops || '';
 
   let desc = `Tipo: <b>${TYPE}</b> | Orden: <b>${M}</b> | Política: <b>${nombrePolitica(POLICY)}</b><br>` +
@@ -1244,6 +1309,7 @@ function cargarPreset(name) {
   if (p.nota) desc += `<br><i style="color:var(--warn)">⚠ ${p.nota}</i>`;
 
   agregarLog('start', `📋 ${p.desc}`, desc);
+  updateUndoButton();
   render();
 }
 
@@ -1346,17 +1412,25 @@ function computeLayout(rootId) {
 
 function drawEdges(svg, layout, ox, oy) {
   const ns = 'http://www.w3.org/2000/svg';
+  const slotCount = maxClaves();
   for (let id in layout.positions) {
     const p = layout.positions[id];
     if (p.node.isLeaf) continue;
     const childCount = p.node.children.length;
-    const childWidth = p.w / childCount;
+    const numKeys = p.node.keys.length;
+    const cellW = p.w / slotCount;
+    // Origen del puntero hijo i: en la frontera entre claves reales,
+    // no repartido sobre celdas vacías. Así el hijo i sale por el borde
+    // derecho de la clave i-1 (o el borde izquierdo de la clave i).
+    //   - i = 0           → borde izquierdo del nodo (antes de la primera clave)
+    //   - i en [1..numKeys] → separador entre clave (i-1) y clave i
+    //   - i = numKeys     → borde derecho de la última clave
     for (let i = 0; i < childCount; i++) {
       const cid = p.node.children[i];
       const cp = layout.positions[cid];
       if (!cp) continue;
-      // origen: borde inferior del padre, en la división correspondiente
-      const fromX = (p.x - p.w/2) + childWidth * (i + 0.5);
+      const idx = Math.min(i, numKeys);
+      const fromX = (p.x - p.w/2) + cellW * idx;
       const line = document.createElementNS(ns, 'line');
       line.setAttribute('x1', fromX + ox);
       line.setAttribute('y1', p.y + oy + 36);
